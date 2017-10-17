@@ -3,9 +3,11 @@ const path = require('path');
 const webpack = require('webpack');
 const production = process.env.NODE_ENV === 'production';
 const htmlWebpackPlugin = require('html-webpack-plugin');
-const DashboardPlugin = require('webpack-dashboard/plugin');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 const MinifyPlugin = require("babel-minify-webpack-plugin");
+const FriendlyErrorsPlugin = require('friendly-errors-webpack-plugin');
+const OptimizeCSSPlugin = require('optimize-css-assets-webpack-plugin');
 const autoprefixer = require('autoprefixer');
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const extractSass = new ExtractTextPlugin({
@@ -15,6 +17,9 @@ const extractSass = new ExtractTextPlugin({
 const plugins = [
   new webpack.optimize.CommonsChunkPlugin({
     name: 'common'
+  }),
+  new webpack.optimize.CommonsChunkPlugin({
+    name: 'manifest',
   })
 ];
 
@@ -52,7 +57,32 @@ if (production) {
     new webpack.optimize.OccurrenceOrderPlugin(),
     new MinifyPlugin({}, {
       comments: false
-    })
+    }),
+    // Compress extracted CSS.
+    // Possible duplicated CSS from different components can be deduped.
+    new OptimizeCSSPlugin({
+      cssProcessorOptions: {
+        safe: true
+      }
+    }),
+    new htmlWebpackPlugin({
+      template: config.template,
+      minify: {
+        removeComments: true,
+        collapseWhitespace: true,
+        removeAttributeQuotes: true
+      },
+      // make it work consistently with multiple chunks (CommonChunksPlugin)
+      chunksSortMode: 'dependency'
+    }),
+    new CopyWebpackPlugin([
+      {
+        from: config.entryAssetPath,
+        to: config.outputAssetPath,
+        ignore: ['.*']
+      }
+    ])
+    //new BundleAnalyzerPlugin(), // analyse the bundles and their contents
   );
 } else {
   plugins.push(
@@ -61,8 +91,8 @@ if (production) {
     new webpack.NamedModulesPlugin(), // print more readable module names in console on HMR,
     new htmlWebpackPlugin({ // generate index.html
       template: config.template,
-    })
-    //new BundleAnalyzerPlugin(), // analyse the bundles and their contents
+    }),
+    new FriendlyErrorsPlugin()
   );
 };
 
@@ -74,7 +104,7 @@ const common = {
     vendor: config.vendor
   },
   output: {
-    path: path.resolve('dist'),
+    path: path.resolve('../dist'),
     filename: production ? '[name].bundle.[hash].js' : '[name].bundle.js',
     publicPath: '/'
   },
@@ -99,7 +129,7 @@ const common = {
       },{
         test: /\.js$/,
         exclude: /node_modules/,
-        include: path.resolve(__dirname, "src"),
+        include: path.resolve(__dirname, "../src"),
         loader: 'babel-loader'
       }
     ]
